@@ -5,31 +5,32 @@ import Control.Monad.Compat.Repl (join)
 p True x _ = x
 p False _ y = y
 
-isOk Nothing = False
-isOk (Just _) = True
+assist = join . (<*>) ((.) . p . fixBool) ((<>) . pure)
 
-assist = join . (<*>) ((.) . p . isOk) ((<>) . pure)
+fix = foldr assist mempty
 
-help = fix . fst . mapAccumR (flip (,)) Nothing
-help' = (fix <$>) . pure . fst . mapAccumR (flip (,)) Nothing
-help2 = (fix <$>) . (foldr assist mempty) . snd . mapAccumR (flip (,)) Nothing
+help = service . fst . mapAccumR (flip (,)) Nothing
+help' = (service <$>) . pure . fst . mapAccumR (flip (,)) Nothing
+help2 = (service <$>) . fix . snd . mapAccumR (flip (,)) Nothing
 
-aid = (Just <$>)
+fixBool Nothing = False
+fixBool (Just _) = True
 
-fix (Just x) = x
+fix_it = (Just <$>)
 
-support xs
+service (Just x) = x
+
+helper xs
     | xs == mempty = mempty
     | help2 xs == mempty = help' xs
-    | otherwise = mappend ((mappend $ pure a) . support . aid . pure $ b) rest where 
+    | otherwise = (mappend $ pure a) $ helper $ fix_it $ (pure b) <> rest where 
         x = help xs
-        y = (help . aid . help2) xs
+        y = (help . fix_it . help2) xs
         a = min x y
         b = max x y
-        rest = (help2 . aid . help2) xs
+        rest = (help2 . fix_it . help2) xs
 
-helper = (>> pure (support . aid))
-
-sort = foldl (.) id =<< helper
+fixIt = (>> pure (helper.fix_it))
+sort = foldl (.) id =<< fixIt
 
 main = print $ ((sort [9,8,7,6,5,4,3,2,1,3,5,7,9]) :: [Integer])
